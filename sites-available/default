@@ -25,7 +25,7 @@
 server {
 	listen 80 default_server;
 	listen [::]:80 default_server;
-	server_name leifsopplevelser.no ruterna.no textbars.app *.kevinmidboe.com kevinmidboe.com;
+	server_name *.leifsopplevelser.no ruterna.no textbars.app *.kevinmidboe.com kevinmidboe.com;
 	return 302 https://$host$request_uri;
 
 
