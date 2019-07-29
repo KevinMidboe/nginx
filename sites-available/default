@@ -18,35 +18,17 @@
 
 # Default server configuration
 
+
+
+# Default should define all the routes to upgrade to https and global rules!
+
 server {
- 
 	listen 80 default_server;
 	listen [::]:80 default_server;
-	server_name leifsopplevelser.no elastic.kevinmidboe.com kibana.kevinmidboe.com ruterna.no api.kevinmidboe.com dev.kevinmidboe.com kevinmidboe.com;
+	server_name leifsopplevelser.no ruterna.no textbars.app *.kevinmidboe.com kevinmidboe.com;
 	return 302 https://$host$request_uri;
 
 
-}
-
-server {
-  listen 443;
-  listen [::]:443;
-  
-  server_name ruterna.no;
-
-  location / {
-    proxy_pass http://localhost:30011/; 
-proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-for $proxy_add_x_forwarded_for;
-                proxy_set_header Connection 'upgrade';
-                proxy_set_header Host $host;
-                proxy_cache_bypass $http_upgrade;
-  }
-
-    ssl_certificate /etc/letsencrypt/live/ruterna.no/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/ruterna.no/privkey.pem; # managed by Certbot
 }
 
 server {
@@ -59,6 +41,18 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/sonarr.kevinmidboe.com/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/sonarr.kevinmidboe.com/privkey.pem; # managed by Certbot
+}
+
+server {
+    listen 443;
+    server_name tau.kevinmidboe.com;
+
+    location / {
+        proxy_pass http://10.0.0.44:8181;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/tau.kevinmidboe.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/tau.kevinmidboe.com/privkey.pem; # managed by Certbot
 }
 
 server {
@@ -92,29 +86,6 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/xoa.kevinmidboe.com/privkey.pem; # managed by Certbot
 }
 
-server {
-    listen 443;
-    server_name tau.kevinmidboe.com;
-
-    location / {
-        proxy_pass http://10.0.0.44:8181;
-    }
-
-    ssl_certificate /etc/letsencrypt/live/tau.kevinmidboe.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/tau.kevinmidboe.com/privkey.pem; # managed by Certbot
-}
-
-server {
-    listen 443;
-    server_name kibana.kevinmidboe.com;
-
-    location / {
-        proxy_pass http://10.0.0.115:5601;
-    }
-
-    ssl_certificate /etc/letsencrypt/live/kibana.kevinmidboe.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/kibana.kevinmidboe.com/privkey.pem; # managed by Certbot
-}
 
 server {
 	listen 443;
@@ -133,44 +104,7 @@ server {
         }
 }
 
-server {
-	# SSL configuration
-	#
-	listen 443 ssl default_server;
-	listen [::]:443 ssl default_server;
-	
-	server_name api.kevinmidboe.com;
 
-	location /files {
-		alias /var/www/public_files/;
-	}
-
-	location /messenger {
-		proxy_pass http://localhost:12322;
-        	proxy_http_version 1.1;
-        	proxy_set_header Upgrade $http_upgrade;
-        	proxy_set_header X-Real-IP $remote_addr;
-        	proxy_set_header X-Forwarded-for $proxy_add_x_forwarded_for;
-        	proxy_set_header Connection 'upgrade';
-        	proxy_set_header Host $host;
-        	proxy_cache_bypass $http_upgrade;
-	}
-    ssl_certificate /etc/letsencrypt/live/api.kevinmidboe.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/api.kevinmidboe.com/privkey.pem; # managed by Certbot
-
-        location /api {
-		proxy_pass http://localhost:31459;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade $http_upgrade;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-for $proxy_add_x_forwarded_for;
-		proxy_set_header Connection 'upgrade';
-		proxy_set_header Host $host;
-		proxy_cache_bypass $http_upgrade;
-	}
-	ssl_certificate /etc/letsencrypt/live/api.kevinmidboe.com/fullchain.pem; # managed by Certbot
-	ssl_certificate_key /etc/letsencrypt/live/api.kevinmidboe.com/privkey.pem; # managed by Certbot
-}
 
 server {
 	listen 443;
@@ -239,123 +173,4 @@ if ($request_method = OPTIONS ) {
     ssl_certificate /etc/letsencrypt/live/kevinmidboe.com/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/kevinmidboe.com/privkey.pem; # managed by Certbot
 }
-
-server {
-        listen 443;
-        listen [::]:443;
-
-        server_name textbars.app;
-
-	location / {
-		root /home/kevin/wavecube;
-		include /etc/nginx/mime.types;
-
-                proxy_pass http://localhost:3000;
-
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header X-REAL-IP $remote_addr;
-                proxy_set_header X-Forwarded-for $proxy_add_x_forwarded_for;
-                proxy_set_header Connection 'upgrade';
-                proxy_set_header Host $host;
-                proxy_cache_bypass $http_upgrade;
-
-	}
-    ssl_certificate /etc/letsencrypt/live/textbars.app/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/textbars.app/privkey.pem; # managed by Certbot
-
-
-}
-
-server {
-    listen 443;
-    listen [::]:443;
-
-    server_name api.leifsopplevelser.no;
-
-    location / {
-        proxy_pass http://localhost:30021;
-    }
-
-    ssl_certificate /etc/letsencrypt/live/api.leifsopplevelser.no/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/api.leifsopplevelser.no/privkey.pem; # managed by Certbot
-}
-
-server {
-    listen 443;
-    listen [::]:443;
-
-    server_name upload.leifsopplevelser.no;
-
-    location / {
-        proxy_pass http://localhost:30022;
-    }
-
-    ssl_certificate /etc/letsencrypt/live/upload.leifsopplevelser.no/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/upload.leifsopplevelser.no/privkey.pem; # managed by Certbot
-}
-
-server {
-	listen 443;
-	listen [::]:443;
-
-	server_name leifsopplevelser.no;
-
-    location /assets {
-        root /home/kevin/leifs-image-processor/;
-    }
-
-	location / {
-		proxy_pass http://localhost:30020;
-	}
-
-    ssl_certificate /etc/letsencrypt/live/leifsopplevelser.no/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/leifsopplevelser.no/privkey.pem; # managed by Certbot
-}
-
-server {
-    listen 443;
-    listen [::]:443;
-
-    server_name elastic.kevinmidboe.com kevinmidboe.com;
-
-    location / {
-        add_header 'Access-Control-Allow-Origin' "https://kevinmidboe.com";
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-for $proxy_add_x_forwarded_for;
-                proxy_set_header Connection 'upgrade';
-                proxy_set_header Host $host;
-                proxy_cache_bypass $http_upgrade;
-
-if ($request_method = 'OPTIONS') {
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-        #
-        # Custom headers and headers various browsers *should* be OK with but aren't
-        #
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
-        #
-        # Tell client that this pre-flight info is valid for 20 days
-        #
-        add_header 'Access-Control-Max-Age' 1728000;
-        add_header 'Content-Type' 'text/plain; charset=utf-8';
-        add_header 'Content-Length' 0;
-        return 204;
-     }
-     if ($request_method = 'GET') {
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
-        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range';
-     }
-
-        proxy_pass http://10.0.0.115:9301;
-    }
-
-    ssl_certificate /etc/letsencrypt/live/elastic.kevinmidboe.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/elastic.kevinmidboe.com/privkey.pem; # managed by Certbot
-}
-
 
