@@ -1,0 +1,18 @@
+# upstream s3 {
+#   server s3.eu-central-1.amazonaws.com:443;
+# }
+
+server {
+    if ($host = ruterna.no) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    server_name ruterna.no;
+
+    location / {
+        proxy_pass https://s3.eu-central-1.amazonaws.com/miljohack;
+    }
+
+
+}
