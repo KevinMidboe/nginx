@@ -1,0 +1,15 @@
+---
+kind: pipeline
+type: docker
+name: Verify
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: Verify nginx confiy
+    image: nginx:1.25-bookworm
+    commands:
+      - nginx -t
+
