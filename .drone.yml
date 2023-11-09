@@ -13,4 +13,8 @@ steps:
     commands:
       - nginx -t
 
+---
+kind: signature
+hmac: f0a4a11afdeeb438700c0abb4a1a3f11c368b6b586cd53ab5735fd5ed4f43224
 
+...
