@@ -13,6 +13,11 @@ environment:
   HEADERS_MORE_VERSION: 'v0.35'
 
 steps:
+  - name: submodules
+    image: alpine/git
+    commands:
+    - git submodule update --init --recursive
+
   - name: Verify nginx config
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
@@ -21,19 +26,26 @@ steps:
   - name: Compile nginx
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
+      - NGINX_CONFIG_PATH=$(pwd)
       - apt update
-      - apt install wget build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev -y
-      - mkdir -p /opt/nginx-modules
-      - wget "https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/$${HEADERS_MORE_VERSION}.tar.gz"
-      - tar -xvzf $${HEADERS_MORE_VERSION}.tar.gz
-      - mv headers-more-nginx-module-* $${NGINX_MODULES_DIR}/headers-more-nginx-module
-      - mkdir -p /opt/nginx
+      - apt install -y
+        wget
+        build-essential
+        libpcre3
+        libpcre3-dev
+        zlib1g
+        zlib1g-dev
+        libssl-dev
+        tree
       - wget "http://nginx.org/download/nginx-$${NGINX_VERSION}.tar.gz"
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
-      - ./configure --prefix=/opt/nginx --add-dynamic-module=$${NGINX_MODULES_DIR}/headers-more-nginx-module  --with-compat
+      - ./configure --prefix=/opt/nginx
+        --add-dynamic-module=../modules-available/headers-more-nginx-module
+        --with-compat
       - make
       - make install
+      - tree /opt/nginx
 
 ---
 kind: signature
