@@ -65,16 +65,20 @@ steps:
   - name: Setup credentials
     image: alpine/git
     commands:
-      - mkdir .ssh
-      - echo $NGINX_FINGERPRINT | base64 -di > .ssh/known_hosts
-      - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
+      - mkdir -p .ssh
+      - apk update
+      - apk add openssh-client
+      - eval $(ssh-agent -s)
+      - echo "$NGINX_DEPLOY_KEY" | base64 -di > .ssh/id_ed25519
       - echo "" >> .ssh/id_ed25519
-      - chmod 600 .ssh/id_ed25519
+      - cat .ssh/id_ed25519 | tr -d '\r' | ssh-add - > /dev/null
+      - touch .ssh/known_hosts
+      - ssh-keyscan $NGINX_HOST >> .ssh/known_hosts
     environment:
-      NGINX_FINGERPRINT:
-        from_secret: NGINX_FINGERPRINT
       NGINX_DEPLOY_KEY:
         from_secret: NGINX_DEPLOY_KEY
+      NGINX_HOST:
+        from_secret: NGINX_HOST
 
   - name: Deploy
     image: alpine/git
