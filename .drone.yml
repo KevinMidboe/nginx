@@ -33,7 +33,7 @@ steps:
   - name: Compile
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
-      - mkdir -p $DRONE_WORKSPACE/nginx-build
+      - mkdir -p /tmp/nginx-build
       - apt update
       - apt install -y
         wget
@@ -44,14 +44,18 @@ steps:
         zlib1g-dev
         libssl-dev
         tree
+      - cd /tmp
       - wget "http://nginx.org/download/nginx-$${NGINX_VERSION}.tar.gz"
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
-      - ./configure --prefix=$DRONE_WORKSPACE/nginx-build
-        --add-dynamic-module=../modules-available/headers-more-nginx-module
+      - ./configure --prefix=/tmp/nginx-build
+        --add-dynamic-module=$DRONE_WORKSPACE/modules-available/headers-more-nginx-module
         --with-compat
       - make
       - make install
+      - cd $DRONE_WORKSPACE
+      - mv /tmp/nginx-build/modules/* .
+      - tree
 
   - name: Verify config post build
     image: ubuntu/nginx:1.24-23.10_beta
@@ -62,6 +66,7 @@ steps:
     image: alpine/git
     commands:
       - mkdir .ssh
+      - echo $NGINX_FINGERPRINT | base64 -di > .ssh/known_hosts
       - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
       - echo "" >> .ssh/id_ed25519
       - chmod 600 .ssh/id_ed25519
@@ -72,9 +77,7 @@ steps:
   - name: Deploy
     image: alpine/git
     commands:
-      - echo $NGINX_USER
-      - echo $NGINX_HOST
-      - ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no $NGINX_USER@$NGINX_HOST ls
+      - ssh -i .ssh/id_ed25519 $NGINX_USER@$NGINX_HOST ls
     environment:
       NGINX_USER:
         from_secret: NGINX_USER
