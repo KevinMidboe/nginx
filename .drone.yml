@@ -12,9 +12,6 @@ clone:
 
 environment:
   NGINX_VERSION: 1.24.0
-  NGINX_MODULES_DIR: /opt/nginx-modules
-  HEADERS_MORE_VERSION: 'v0.35'
-
 
 steps:
   - name: Clone w/ submodules
@@ -23,7 +20,6 @@ steps:
       - git clone $DRONE_REPO_LINK .
       - git checkout $DRONE_COMMIT
       - git submodule update --init --recursive
-      - ls -l
 
   - name: Verify config
     image: ubuntu/nginx:1.24-23.10_beta
@@ -55,7 +51,7 @@ steps:
       - make install
       - cd $DRONE_WORKSPACE
       - mv /tmp/nginx-build/modules/* modules
-      - tree
+      - tree -I modules-available
 
   - name: Verify config post build
     image: ubuntu/nginx:1.24-23.10_beta
@@ -63,35 +59,41 @@ steps:
       - nginx -t
 
   - name: Setup credentials
-    image: alpine/git
+    image: alpine:3.18.4
     commands:
-      - mkdir -p .ssh
-      - apk update
-      - apk add openssh-client
-      - eval $(ssh-agent -s)
-      - echo "$NGINX_DEPLOY_KEY" | base64 -di > .ssh/id_ed25519
+      - mkdir .ssh
+      - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
       - echo "" >> .ssh/id_ed25519
-      - cat .ssh/id_ed25519 | tr -d '\r' | ssh-add - > /dev/null
-      - touch .ssh/known_hosts
-      - ssh-keyscan $NGINX_HOST >> .ssh/known_hosts
+      - chmod 600 .ssh/id_ed25519
+#      - apk update
+#      - apk add openssh-client
+#      - eval $(ssh-agent -s)
+#      - cat .ssh/id_ed25519 | tr -d '\r' | ssh-add - > /dev/null
+#      - touch .ssh/known_hosts
+#      - ssh-keyscan $NGINX_HOST >> .ssh/known_hosts
     environment:
       NGINX_DEPLOY_KEY:
         from_secret: NGINX_DEPLOY_KEY
-      NGINX_HOST:
-        from_secret: NGINX_HOST
 
   - name: Deploy
-    image: alpine/git
+    image: alpine:3.18.4
     commands:
-      - ssh -i .ssh/id_ed25519 $NGINX_USER@$NGINX_HOST ls
+      - apk update
+      - apk add rsync openssh
+      - rsync
+        -av
+        -e "ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no"
+        --exclude available-modules
+        modules $NGINX_USER@$NGINX_HOST:/etc/nginx/
     environment:
       NGINX_USER:
         from_secret: NGINX_USER
       NGINX_HOST:
         from_secret: NGINX_HOST
 
+
 ---
 kind: signature
-hmac: 889f2181f1c89b0906b3a95b4fe08fb6a9e91faaf02059c4fe264dac06ce9c1d
+hmac: 144bbd73dc3b83d6a6f1f4bacca7b83b377b12dc56021db7c723988b0ad2ec3c
 
 ...
