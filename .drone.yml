@@ -1,11 +1,14 @@
 ---
 kind: pipeline
 type: docker
-name: Verify
+name: Build & deploy
 
 platform:
   os: linux
   arch: amd64
+
+clone:
+  disable: true
 
 environment:
   NGINX_VERSION: 1.24.0
@@ -13,10 +16,12 @@ environment:
   HEADERS_MORE_VERSION: 'v0.35'
 
 steps:
-  - name: submodules
+  - name: Clone w/ submodules
     image: alpine/git
     commands:
-    - git submodule update --init --recursive
+      - git clone $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+      - git submodule update --init --recursive
 
   - name: Verify nginx config
     image: ubuntu/nginx:1.24-23.10_beta
@@ -26,7 +31,7 @@ steps:
   - name: Compile nginx
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
-      - NGINX_CONFIG_PATH=$(pwd)
+      - mkdir -p $DRONE_WORKSPACE/nginx-build
       - apt update
       - apt install -y
         wget
@@ -40,12 +45,16 @@ steps:
       - wget "http://nginx.org/download/nginx-$${NGINX_VERSION}.tar.gz"
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
-      - ./configure --prefix=/opt/nginx
+      - ./configure --prefix=$DRONE_WORKSPACE/nginx-build
         --add-dynamic-module=../modules-available/headers-more-nginx-module
         --with-compat
       - make
       - make install
-      - tree /opt/nginx
+
+  - name: Deploy
+    image: alpine/git
+    commands:
+      - tree $DRONE_WORKSPACE/nginx-build
 
 ---
 kind: signature
