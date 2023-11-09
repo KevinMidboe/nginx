@@ -13,11 +13,16 @@ environment:
   HEADERS_MORE_VERSION: 'v0.35'
 
 steps:
+  - name: Verify nginx config
+    image: ubuntu/nginx:1.24-23.10_beta
+    commands:
+      - nginx -t
+
   - name: Compile nginx
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
       - apt update
-      - apt install wget -y
+      - apt install wget build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev -y
       - mkdir -p /opt/nginx-modules
       - wget "https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/$${HEADERS_MORE_VERSION}.tar.gz"
       - tar -xvzf $${HEADERS_MORE_VERSION}.tar.gz
@@ -27,14 +32,8 @@ steps:
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
       - ./configure --prefix=/opt/nginx --add-dynamic-module=$${NGINX_MODULES_DIR}/headers-more-nginx-module  --with-compat
-      - cd nginx-$${NGINX_VERSION}
       - make
       - make install
-
-  - name: Verify nginx confiy
-    image: nginx:$${NGINX_VERSION}-bookworm
-    commands:
-      - nginx -p /opt/nginx -t
 
 ---
 kind: signature
