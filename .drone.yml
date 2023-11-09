@@ -15,6 +15,7 @@ environment:
   NGINX_MODULES_DIR: /opt/nginx-modules
   HEADERS_MORE_VERSION: 'v0.35'
 
+
 steps:
   - name: Clone w/ submodules
     image: alpine/git
@@ -22,13 +23,14 @@ steps:
       - git clone $DRONE_REPO_LINK .
       - git checkout $DRONE_COMMIT
       - git submodule update --init --recursive
+      - ls -l
 
-  - name: Verify nginx config
+  - name: Verify config
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
       - nginx -t
 
-  - name: Compile nginx
+  - name: Compile
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
       - mkdir -p $DRONE_WORKSPACE/nginx-build
@@ -51,10 +53,33 @@ steps:
       - make
       - make install
 
+  - name: Verify config post build
+    image: ubuntu/nginx:1.24-23.10_beta
+    commands:
+      - nginx -t
+
+  - name: Setup credentials
+    image: alpine/git
+    commands:
+      - mkdir .ssh
+      - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
+      - echo "" >> .ssh/id_ed25519
+      - chmod 600 .ssh/id_ed25519
+    environment:
+      NGINX_DEPLOY_KEY:
+        from_secret: NGINX_DEPLOY_KEY
+
   - name: Deploy
     image: alpine/git
     commands:
-      - tree $DRONE_WORKSPACE/nginx-build
+      - echo $NGINX_USER
+      - echo $NGINX_HOST
+      - ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no $NGINX_USER@$NGINX_HOST ls
+    environment:
+      NGINX_USER:
+        from_secret: NGINX_USER
+      NGINX_HOST:
+        from_secret: NGINX_HOST
 
 ---
 kind: signature
