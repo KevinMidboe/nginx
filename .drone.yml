@@ -54,7 +54,7 @@ steps:
       - make
       - make install
       - cd $DRONE_WORKSPACE
-      - mv /tmp/nginx-build/modules/* .
+      - mv /tmp/nginx-build/modules/* modules
       - tree
 
   - name: Verify config post build
@@ -71,6 +71,8 @@ steps:
       - echo "" >> .ssh/id_ed25519
       - chmod 600 .ssh/id_ed25519
     environment:
+      NGINX_FINGERPRINT:
+        from_secret: NGINX_FINGERPRINT
       NGINX_DEPLOY_KEY:
         from_secret: NGINX_DEPLOY_KEY
 
