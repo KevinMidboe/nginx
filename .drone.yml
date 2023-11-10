@@ -146,11 +146,13 @@ steps:
       - apk update
       - apk add rsync openssh
       - rsync
-        -av
+        -avr
         -e "ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no"
-        --exclude available-modules
-        --exclude nginx-build
-        modules $NGINX_USER@$NGINX_HOST:/etc/nginx/
+        --exclude=modules-available
+        --exclude=nginx-build
+        --exclude=".*"
+        --exclude="*_temp"
+        * $NGINX_USER@$NGINX_HOST:/etc/nginx/
     environment:
       NGINX_USER:
         from_secret: NGINX_USER
@@ -160,6 +162,6 @@ steps:
 
 ---
 kind: signature
-hmac: 6ed9cbea425c2de2a531f66069583ec40e77877b7606647dfcf6593b27f3838c
+hmac: 0a809793762413ba82e7f71d5d77000422cb0532512bd93c5d9d000ffa689564
 
 ...
