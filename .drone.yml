@@ -17,6 +17,12 @@ clone:
 environment:
   NGINX_VERSION: 1.24.0
 
+volumes:
+  - name: letsencrypt
+    temp: {}
+  - name: ssl
+    temp: {}
+
 steps:
   - name: Clone w/ submodules
     image: alpine/git
@@ -25,11 +31,16 @@ steps:
       - git checkout $DRONE_COMMIT
       - git submodule update --init --recursive
 
-  - name: Verify config
-    image: ubuntu/nginx:1.24-23.10_beta
+  - name: Setup environment
+    image: alpine:3.18.4
+    volumes:
+      - name: letsencrypt
+        path: /etc/letsencrypt
+      - name: ssl
+        path: /etc/ssl
     commands:
-      - apt update
-      - apt install openssl
+      - apk update
+      - apk add openssl
       - cd $DRONE_WORKSPACE
       - mkdir .ssl
       - openssl req
@@ -55,6 +66,14 @@ steps:
         awk -F ' ' '{print $2}' RS=';' |
         while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.key $file; fi; done
 
+  - name: Verify config
+    image: ubuntu/nginx:1.24-23.10_beta
+    volumes:
+      - name: letsencrypt
+        path: /etc/letsencrypt
+      - name: ssl
+        path: /etc/ssl
+    commands:
       - nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf -t
 
   - name: Compile
@@ -87,8 +106,13 @@ steps:
 
   - name: Verify config post build
     image: ubuntu/nginx:1.24-23.10_beta
+    volumes:
+      - name: letsencrypt
+        path: /etc/letsencrypt
+      - name: ssl
+        path: /etc/ssl
     commands:
-      - nginx -t
+      - nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf -t
 
   - name: Setup credentials
     image: alpine:3.18.4
@@ -126,6 +150,6 @@ steps:
 
 ---
 kind: signature
-hmac: 03972a40959e14601d6c922c10f2d96f77f84f1ea88cc49e40aa0c69c755266b
+hmac: 1b941ff6cc5afce923caebaee1724e778f9963e390bb0ddbbee7c123b17e4aed
 
 ...
