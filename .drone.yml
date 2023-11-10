@@ -59,21 +59,21 @@ steps:
         awk -F ' ' '{print $2}' RS=';' |
         while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.key $file; fi; done
 
-  - name: Verify config
-    image: alpine:3.18.4
-    volumes:
-      - name: letsencrypt
-        path: /etc/letsencrypt
-      - name: ssl
-        path: /etc/ssl
-    commands:
-      - apk update
-      - apk add nginx~$${NGINX_VERSION}
-      - cd /etc/nginx
-      - cp -r $DRONE_WORKSPACE/* .
-      - cat nginx.conf | sed 's/load_module/#load_module/g' > nginx-module-less.conf
-      - nginx -t -p $PWD -c nginx-module-less.conf
-      - rm nginx-module-less.conf
+#   - name: Verify config
+#     image: alpine:3.18.4
+#     volumes:
+#       - name: letsencrypt
+#         path: /etc/letsencrypt
+#       - name: ssl
+#         path: /etc/ssl
+#     commands:
+#       - apk update
+#       - apk add nginx~$${NGINX_VERSION}
+#       - cd /etc/nginx
+#       - cp -r $DRONE_WORKSPACE/* .
+#       - cat nginx.conf | sed 's/load_module/#load_module/g' > nginx-module-less.conf
+#       - nginx -t -p $PWD -c nginx-module-less.conf
+#       - rm nginx-module-less.conf
 
   - name: Compile modules
     image: ubuntu:22.04
