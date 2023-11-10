@@ -130,15 +130,17 @@ steps:
       - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
       - echo "" >> .ssh/id_ed25519
       - chmod 600 .ssh/id_ed25519
-#      - apk update
-#      - apk add openssh-client
-#      - eval $(ssh-agent -s)
-#      - cat .ssh/id_ed25519 | tr -d '\r' | ssh-add - > /dev/null
-#      - touch .ssh/known_hosts
-#      - ssh-keyscan $NGINX_HOST >> .ssh/known_hosts
     environment:
       NGINX_DEPLOY_KEY:
         from_secret: NGINX_DEPLOY_KEY
+    when:
+      event:
+        include:
+          - push
+        exclude:
+          - pull_request
+      branch:
+        - main
 
   - name: Deploy
     image: alpine:3.18.4
@@ -158,10 +160,17 @@ steps:
         from_secret: NGINX_USER
       NGINX_HOST:
         from_secret: NGINX_HOST
-
+    when:
+      event:
+        include:
+          - push
+        exclude:
+          - pull_request
+      branch:
+        - main
 
 ---
 kind: signature
-hmac: 0a809793762413ba82e7f71d5d77000422cb0532512bd93c5d9d000ffa689564
+hmac: 7e392f769559ba043b923bbc35197ad955864d15a179979949528362731cbf29
 
 ...
