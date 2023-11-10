@@ -1,16 +1,176 @@
 ---
 kind: pipeline
 type: docker
-name: Verify
+name: Build & deploy
 
 platform:
   os: linux
   arch: amd64
 
+clone:
+  disable: true
+
+environment:
+  NGINX_VERSION: 1.24.0
+
+volumes:
+  - name: letsencrypt
+    temp: {}
+  - name: ssl
+    temp: {}
+
 steps:
-  - name: Verify nginx confiy
-    image: nginx:1.25-bookworm
+  - name: Clone w/ submodules
+    image: alpine/git
     commands:
-      - nginx -t
+      - git clone $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+      - git submodule update --init --recursive
 
+  - name: Setup environment
+    image: alpine:3.18.4
+    volumes:
+      - name: letsencrypt
+        path: /etc/letsencrypt
+      - name: ssl
+        path: /etc/ssl
+    commands:
+      - apk update
+      - apk add openssl
+      - cd $DRONE_WORKSPACE
+      - mkdir .ssl
+      - openssl req
+        -x509
+        -nodes
+        -days 1
+        -newkey rsa:4096
+        -keyout .ssl/ssl-cert-snakeoil.key
+        -out .ssl/ssl-cert-snakeoil.pem
+        -batch
 
+      - grep -ro 'ssl_certificate[^;]*;' sites-available snippets | awk -F' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then mkdir -p $(dirname $file); fi; done
+
+      - grep -ro 'ssl_certificate [^;]*;' sites-available snippets |
+        awk -F ' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.pem $file; fi; done
+
+      - grep -ro 'ssl_certificate_key [^;]*;' sites-available snippets |
+        awk -F ' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.key $file; fi; done
+
+#   - name: Verify config
+#     image: alpine:3.18.4
+#     volumes:
+#       - name: letsencrypt
+#         path: /etc/letsencrypt
+#       - name: ssl
+#         path: /etc/ssl
+#     commands:
+#       - apk update
+#       - apk add nginx~$${NGINX_VERSION}
+#       - cd /etc/nginx
+#       - cp -r $DRONE_WORKSPACE/* .
+#       - cat nginx.conf | sed 's/load_module/#load_module/g' > nginx-module-less.conf
+#       - nginx -t -p $PWD -c nginx-module-less.conf
+#       - rm nginx-module-less.conf
+
+  - name: Compile nginx & modules
+    image: ubuntu:22.04
+    commands:
+      - mkdir -p $DRONE_WORKSPACE/nginx-build
+      - apt -q update
+      - apt -y -qq install -o Dpkg::Progress-Fancy="0" -o APT::Color="0" -o Dpkg::Use-Pty="0"
+        nginx
+        wget
+        build-essential
+        libpcre3
+        libpcre3-dev
+        zlib1g
+        zlib1g-dev
+        libssl-dev
+        tree
+      - cd /tmp
+      - wget "http://nginx.org/download/nginx-$${NGINX_VERSION}.tar.gz"
+      - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
+      - cd nginx-$${NGINX_VERSION}
+      - ./configure
+        --prefix=$DRONE_WORKSPACE/nginx-build
+        --add-dynamic-module=$DRONE_WORKSPACE/modules-available/headers-more-nginx-module
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_stub_status_module
+        --with-http_gzip_static_module
+        --with-http_realip_module
+        --with-compat
+      - make modules
+      - make install
+      - cd $DRONE_WORKSPACE
+      - mv nginx-build/modules/* modules
+      - mv nginx-build/sbin .
+      - tree -I modules-available
+
+  - name: Verify config w/ modules
+    image: ubuntu:22.04
+    volumes:
+      - name: letsencrypt
+        path: /etc/letsencrypt
+      - name: ssl
+        path: /etc/ssl
+    commands:
+      - mkdir -p /var/log/nginx
+      - touch /var/log/nginx/error.log
+      - useradd nginx
+      - sbin/nginx -t -p $PWD -c nginx.conf -e /var/log/nginx/error.log
+
+  - name: Setup credentials
+    image: alpine:3.18.4
+    commands:
+      - mkdir .ssh
+      - echo $NGINX_DEPLOY_KEY | base64 -di > .ssh/id_ed25519
+      - echo "" >> .ssh/id_ed25519
+      - chmod 600 .ssh/id_ed25519
+    environment:
+      NGINX_DEPLOY_KEY:
+        from_secret: NGINX_DEPLOY_KEY
+    when:
+      event:
+        include:
+          - push
+        exclude:
+          - pull_request
+      branch:
+        - main
+
+  - name: Deploy
+    image: alpine:3.18.4
+    commands:
+      - apk update
+      - apk add rsync openssh
+      - rsync
+        -avr
+        -e "ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no"
+        --exclude=modules-available
+        --exclude=nginx-build
+        --exclude=".*"
+        --exclude="*_temp"
+        * $NGINX_USER@$NGINX_HOST:/etc/nginx/
+    environment:
+      NGINX_USER:
+        from_secret: NGINX_USER
+      NGINX_HOST:
+        from_secret: NGINX_HOST
+    when:
+      event:
+        include:
+          - push
+        exclude:
+          - pull_request
+      branch:
+        - main
+
+---
+kind: signature
+hmac: 7e392f769559ba043b923bbc35197ad955864d15a179979949528362731cbf29
+
+...
