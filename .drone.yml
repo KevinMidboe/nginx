@@ -10,10 +10,6 @@ platform:
 clone:
   disable: true
 
-# TODO
-# grep on ssl_certificate and create fake certificates
-# for nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf
-
 environment:
   NGINX_VERSION: 1.24.0
 
@@ -52,36 +48,40 @@ steps:
         -out .ssl/ssl-cert-snakeoil.pem
         -batch
 
-      - echo "Creating letsencrypt folders";
-        grep -ro 'ssl_certificate[^;]*;' sites-available snippets | awk -F' ' '{print $2}' RS=';' |
+      - grep -ro 'ssl_certificate[^;]*;' sites-available snippets | awk -F' ' '{print $2}' RS=';' |
         while read -r file; do if [ ! -z $file ]; then mkdir -p $(dirname $file); fi; done
 
-      - echo "Creating snakeoil symlinks for ssl_cert references in nginx configs";
-        grep -ro 'ssl_certificate [^;]*;' sites-available snippets |
+      - grep -ro 'ssl_certificate [^;]*;' sites-available snippets |
         awk -F ' ' '{print $2}' RS=';' |
         while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.pem $file; fi; done
 
-      - echo "Creating snakeoil symlinks for ssl_cert_key references in nginx configs";
-        grep -ro 'ssl_certificate_key [^;]*;' sites-available snippets |
+      - grep -ro 'ssl_certificate_key [^;]*;' sites-available snippets |
         awk -F ' ' '{print $2}' RS=';' |
         while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.key $file; fi; done
 
   - name: Verify config
-    image: ubuntu/nginx:1.24-23.10_beta
+    image: alpine:3.18.4
     volumes:
       - name: letsencrypt
         path: /etc/letsencrypt
       - name: ssl
         path: /etc/ssl
     commands:
-      - nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf -t
+      - apk update
+      - apk add nginx~$${NGINX_VERSION}
+      - cd /etc/nginx
+      - cp -r $DRONE_WORKSPACE/* .
+      - cat nginx.conf | sed 's/load_module/#load_module/g' > nginx-module-less.conf
+      - nginx -t -p $PWD -c nginx-module-less.conf
+      - rm nginx-module-less.conf
 
-  - name: Compile
-    image: ubuntu/nginx:1.24-23.10_beta
+  - name: Compile modules
+    image: ubuntu:22.04
     commands:
-      - mkdir -p /tmp/nginx-build
-      - apt update
-      - apt install -y
+      - mkdir -p $DRONE_WORKSPACE/nginx-build
+      - apt -q update
+      - apt -y -qq install -o Dpkg::Progress-Fancy="0" -o APT::Color="0" -o Dpkg::Use-Pty="0"
+        nginx
         wget
         build-essential
         libpcre3
@@ -95,24 +95,33 @@ steps:
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
       - ./configure
-        --prefix=/tmp/nginx-build
+        --prefix=$DRONE_WORKSPACE/nginx-build
         --add-dynamic-module=$DRONE_WORKSPACE/modules-available/headers-more-nginx-module
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_stub_status_module
+        --with-http_gzip_static_module
+        --with-http_realip_module
         --with-compat
-      - make
+      - make modules
       - make install
       - cd $DRONE_WORKSPACE
-      - mv /tmp/nginx-build/modules/* modules
+      - mv nginx-build/modules/* modules
+      - mv nginx-build/sbin .
       - tree -I modules-available
 
-  - name: Verify config post build
-    image: ubuntu/nginx:1.24-23.10_beta
+  - name: Verify config w/ modules
+    image: ubuntu:22.04
     volumes:
       - name: letsencrypt
         path: /etc/letsencrypt
       - name: ssl
         path: /etc/ssl
     commands:
-      - nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf -t
+      - mkdir -p /var/log/nginx
+      - touch /var/log/nginx/error.log
+      - useradd nginx
+      - sbin/nginx -t -p $PWD -c nginx.conf -e /var/log/nginx/error.log
 
   - name: Setup credentials
     image: alpine:3.18.4
@@ -140,6 +149,8 @@ steps:
         -av
         -e "ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no"
         --exclude available-modules
+        --exclude sbin
+        --exclude nginx-build
         modules $NGINX_USER@$NGINX_HOST:/etc/nginx/
     environment:
       NGINX_USER:
