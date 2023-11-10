@@ -155,6 +155,7 @@ steps:
         --exclude=".*"
         --exclude="*_temp"
         * $NGINX_USER@$NGINX_HOST:/etc/nginx/
+      - ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking 'sudo systemctl reload nginx'
     environment:
       NGINX_USER:
         from_secret: NGINX_USER
@@ -171,6 +172,6 @@ steps:
 
 ---
 kind: signature
-hmac: 7e392f769559ba043b923bbc35197ad955864d15a179979949528362731cbf29
+hmac: af057f67070e2ea82be5b75874e0a5cc89ec8a912e71d2369f4d4537c02faecb
 
 ...
