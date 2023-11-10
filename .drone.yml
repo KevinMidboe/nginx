@@ -10,6 +10,10 @@ platform:
 clone:
   disable: true
 
+# TODO
+# grep on ssl_certificate and create fake certificates
+# for nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf
+
 environment:
   NGINX_VERSION: 1.24.0
 
@@ -24,7 +28,34 @@ steps:
   - name: Verify config
     image: ubuntu/nginx:1.24-23.10_beta
     commands:
-      - nginx -t
+      - apt update
+      - apt install openssl
+      - cd $DRONE_WORKSPACE
+      - mkdir .ssl
+      - openssl req
+        -x509
+        -nodes
+        -days 1
+        -newkey rsa:4096
+        -keyout .ssl/ssl-cert-snakeoil.key
+        -out .ssl/ssl-cert-snakeoil.pem
+        -batch
+
+      - echo "Creating letsencrypt folders";
+        grep -ro 'ssl_certificate[^;]*;' sites-available snippets | awk -F' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then mkdir -p $(dirname $file); fi; done
+
+      - echo "Creating snakeoil symlinks for ssl_cert references in nginx configs";
+        grep -ro 'ssl_certificate [^;]*;' sites-available snippets |
+        awk -F ' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.pem $file; fi; done
+
+      - echo "Creating snakeoil symlinks for ssl_cert_key references in nginx configs";
+        grep -ro 'ssl_certificate_key [^;]*;' sites-available snippets |
+        awk -F ' ' '{print $2}' RS=';' |
+        while read -r file; do if [ ! -z $file ]; then ln -sf $PWD/.ssl/ssl-cert-snakeoil.key $file; fi; done
+
+      - nginx -p $DRONE_WORKSPACE -c $DRONE_WORKSPACE/nginx.conf -t
 
   - name: Compile
     image: ubuntu/nginx:1.24-23.10_beta
@@ -44,7 +75,8 @@ steps:
       - wget "http://nginx.org/download/nginx-$${NGINX_VERSION}.tar.gz"
       - tar -xvzf nginx-$${NGINX_VERSION}.tar.gz
       - cd nginx-$${NGINX_VERSION}
-      - ./configure --prefix=/tmp/nginx-build
+      - ./configure
+        --prefix=/tmp/nginx-build
         --add-dynamic-module=$DRONE_WORKSPACE/modules-available/headers-more-nginx-module
         --with-compat
       - make
@@ -94,6 +126,6 @@ steps:
 
 ---
 kind: signature
-hmac: 144bbd73dc3b83d6a6f1f4bacca7b83b377b12dc56021db7c723988b0ad2ec3c
+hmac: 03972a40959e14601d6c922c10f2d96f77f84f1ea88cc49e40aa0c69c755266b
 
 ...
