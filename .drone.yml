@@ -75,7 +75,7 @@ steps:
 #       - nginx -t -p $PWD -c nginx-module-less.conf
 #       - rm nginx-module-less.conf
 
-  - name: Compile modules
+  - name: Compile nginx & modules
     image: ubuntu:22.04
     commands:
       - mkdir -p $DRONE_WORKSPACE/nginx-build
@@ -149,7 +149,6 @@ steps:
         -av
         -e "ssh -i .ssh/id_ed25519 -o StrictHostKeyChecking=no"
         --exclude available-modules
-        --exclude sbin
         --exclude nginx-build
         modules $NGINX_USER@$NGINX_HOST:/etc/nginx/
     environment:
@@ -161,6 +160,6 @@ steps:
 
 ---
 kind: signature
-hmac: 1b941ff6cc5afce923caebaee1724e778f9963e390bb0ddbbee7c123b17e4aed
+hmac: 6ed9cbea425c2de2a531f66069583ec40e77877b7606647dfcf6593b27f3838c
 
 ...
